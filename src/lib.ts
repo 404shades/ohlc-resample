@@ -8,6 +8,7 @@ import isPlainObject from "lodash/isPlainObject";
 import groupBy from "lodash/groupBy";
 import sortBy from "lodash/sortBy";
 import chunk from "lodash/chunk";
+import { Dictionary } from 'lodash';
 
 /**
 * Resample OHLCV to different timeframe
@@ -217,6 +218,33 @@ export const resampleTicksByTime = (
 
   timeframe *= Math.floor(1000);
   const tickGroups = groupBy(tickData, (tick) => tick.time - (tick.time % timeframe));
+  const candles: IOHLCV[] = [];
+  Object.keys(tickGroups).forEach(timeOpen => {
+    const ticks = tickGroups[timeOpen];
+    const candle = tickGroupToOhlcv(Number(timeOpen), ticks);
+    if (fillGaps && candles.length) {
+      const lastCandle = candles[candles.length - 1];
+      candles.push(...makeGapCandles(lastCandle, candle, { msTimeframe: timeframe }));
+    }
+    candles.push(candle);
+  });
+  const sortedCandles = sortBy(candles, (candle) => candle.time);
+
+  if (includeLatestCandle === false) {
+    sortedCandles.pop();
+  }
+  return sortedCandles;
+}
+
+
+export const resampleTicksByTimeGroup = (
+  tickData: Dictionary<Trade[]>,
+  { timeframe = 60, includeLatestCandle = true, fillGaps = false }:
+    { timeframe?: number, includeLatestCandle?: boolean, fillGaps?: boolean } = {}
+): IOHLCV[] => {
+
+  timeframe *= Math.floor(1000);
+  const tickGroups = tickData
   const candles: IOHLCV[] = [];
   Object.keys(tickGroups).forEach(timeOpen => {
     const ticks = tickGroups[timeOpen];
